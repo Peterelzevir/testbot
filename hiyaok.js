@@ -1584,17 +1584,18 @@ const setupBot = () => {
                 break;
             
             case 'do_all':
+                // Declare accountId once at the beginning of the case block
+                const doAllAccountId = userState.accountId;
+                
                 if (userState.step === 'rename') {
                     // Proses rename di do_all
-                    const doAllAccId = userState.accountId;
-                    
-                    if (!activeConnections.has(doAllAccId)) {
+                    if (!activeConnections.has(doAllAccountId)) {
                         await ctx.reply('❌ WhatsApp telah terputus. Silakan hubungkan kembali.');
                         userStates.delete(userId);
                         return;
                     }
                     
-                    const renameSuccess = await renameGroups(ctx, activeConnections.get(doAllAccId), input);
+                    const renameSuccess = await renameGroups(ctx, activeConnections.get(doAllAccountId), input);
                     
                     if (renameSuccess) {
                         // Update state ke step berikutnya
@@ -1603,13 +1604,11 @@ const setupBot = () => {
                             '⏭️ Selanjutnya: Ambil Link Grup\n' +
                             'Proses otomatis akan dilanjutkan...'
                         );
-                        await getGroupLinks(ctx, activeConnections.get(doAllAccId), doAllAccId);
+                        await getGroupLinks(ctx, activeConnections.get(doAllAccountId), doAllAccountId);
                     }
                 } else if (userState.step === 'admins') {
                     // Proses tambah admin di do_all
-                    const doAllAccId = userState.accountId;
-                    
-                    if (!activeConnections.has(doAllAccId)) {
+                    if (!activeConnections.has(doAllAccountId)) {
                         await ctx.reply('❌ WhatsApp telah terputus. Silakan hubungkan kembali.');
                         userStates.delete(userId);
                         return;
@@ -1622,7 +1621,7 @@ const setupBot = () => {
                         return;
                     }
                     
-                    const adminSuccess = await addGroupAdmins(ctx, activeConnections.get(doAllAccId), numbers, doAllAccId);
+                    const adminSuccess = await addGroupAdmins(ctx, activeConnections.get(doAllAccountId), numbers, doAllAccountId);
                     
                     if (adminSuccess) {
                         // Update state ke step berikutnya
@@ -1631,7 +1630,7 @@ const setupBot = () => {
                             '⏭️ Selanjutnya: Pengaturan Grup\n' +
                             'Proses otomatis akan dilanjutkan...'
                         );
-                        await applyGroupSettings(ctx, activeConnections.get(doAllAccId), doAllAccId);
+                        await applyGroupSettings(ctx, activeConnections.get(doAllAccountId), doAllAccountId);
                         userStates.delete(userId);
                     }
                 }
