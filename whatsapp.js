@@ -1,9 +1,9 @@
-// whatsapp.js - Manajemen koneksi WhatsApp
-
+// whatsapp.js - Perbaikan masalah QR code
 const { default: makeWASocket, DisconnectReason, useMultiFileAuthState, fetchLatestBaileysVersion } = require('@whiskeysockets/baileys');
 const fs = require('fs');
 const path = require('path');
 const pino = require('pino');
+const qrcode = require('qrcode');
 const config = require('./config');
 const utils = require('./utils');
 
@@ -15,7 +15,7 @@ if (!fs.existsSync(config.SESSION_DIR)) {
 // Map untuk menyimpan instance WhatsApp
 const sessions = new Map();
 
-// Map untuk menyimpan callbacks
+// Map untuk callbacks
 const qrCallbacks = new Map();
 const connectCallbacks = new Map();
 const disconnectCallbacks = new Map();
@@ -24,85 +24,97 @@ const disconnectCallbacks = new Map();
 const whatsapp = {
     // Connect ke WhatsApp dengan session baru atau yang sudah ada
     connect: async (sessionId) => {
-        // Setup path session
-        const sessionDir = path.join(config.SESSION_DIR, sessionId);
-        
-        if (!fs.existsSync(sessionDir)) {
-            fs.mkdirSync(sessionDir, { recursive: true });
+        try {
+            // Setup path session
+            const sessionDir = path.join(config.SESSION_DIR, sessionId);
+            
+            if (!fs.existsSync(sessionDir)) {
+                fs.mkdirSync(sessionDir, { recursive: true });
+            }
+            
+            // Setup auth state
+            const { state, saveCreds } = await useMultiFileAuthState(sessionDir);
+            
+            // Logger silent untuk menghindari log yang terlalu banyak
+            const logger = pino({ level: 'silent' });
+            
+            // Buat socket connection
+            const sock = makeWASocket({
+                auth: state,
+                printQRInTerminal: true,
+                logger
+            });
+            
+            // Handle connection events
+            sock.ev.on('connection.update', async (update) => {
+                const { connection, lastDisconnect, qr } = update;
+                
+                // Handling QR code
+                if (qr) {
+                    console.log('QR Code received:', qr.length);
+                    
+                    try {
+                        // Simpan QR sebagai file gambar
+                        const qrPath = path.join(config.TEMP_DIR, `qr_${sessionId}.png`);
+                        await qrcode.toFile(qrPath, qr, {
+                            scale: 8,
+                            margin: 1
+                        });
+                        
+                        // Panggil callback dengan path file QR
+                        if (qrCallbacks.has(sessionId)) {
+                            qrCallbacks.get(sessionId)(qrPath);
+                        }
+                    } catch (err) {
+                        console.error('Error generating QR code image:', err);
+                    }
+                }
+                
+                // Connection update
+                if (connection === 'close') {
+                    // Cek apakah perlu reconnect
+                    const shouldReconnect = lastDisconnect?.error?.output?.statusCode !== DisconnectReason.loggedOut;
+                    
+                    console.log(`Connection closed. Reconnect: ${shouldReconnect}`);
+                    
+                    if (shouldReconnect) {
+                        // Reconnect dengan delay
+                        setTimeout(() => {
+                            console.log(`Reconnecting ${sessionId}...`);
+                            whatsapp.connect(sessionId);
+                        }, 2000);
+                    } else {
+                        // Logout
+                        console.log(`Session ${sessionId} logged out`);
+                        sessions.delete(sessionId);
+                        
+                        // Panggil callback disconnect
+                        if (disconnectCallbacks.has(sessionId)) {
+                            disconnectCallbacks.get(sessionId)();
+                        }
+                    }
+                } else if (connection === 'open') {
+                    // Connection opened
+                    console.log(`Connected to WhatsApp (${sessionId})`);
+                    
+                    // Panggil callback connect
+                    if (connectCallbacks.has(sessionId)) {
+                        connectCallbacks.get(sessionId)(sock);
+                    }
+                }
+            });
+            
+            // Handle creds.update
+            sock.ev.on('creds.update', saveCreds);
+            
+            // Simpan session
+            sessions.set(sessionId, sock);
+            
+            return sock;
+        } catch (error) {
+            console.error(`Error connecting to WhatsApp (${sessionId}):`, error);
+            throw error;
         }
-        
-        // Setup auth state
-        const { state, saveCreds } = await useMultiFileAuthState(sessionDir);
-        const { version } = await fetchLatestBaileysVersion();
-        
-        // Setup logger
-        const logger = pino({ level: 'silent' });
-        
-        // Buat instance socket
-        const sock = makeWASocket({
-            version,
-            auth: state,
-            printQRInTerminal: true, // Tetap print QR di terminal untuk debug
-            logger,
-            browser: ['WhatsApp Manager Bot', 'Chrome', '1.0.0']
-        });
-        
-        // Handle connection events
-        sock.ev.on('connection.update', async (update) => {
-            const { connection, lastDisconnect, qr } = update;
-            
-            // Jika mendapat QR code
-            if (qr) {
-                try {
-                    // Generate QR code sebagai gambar
-                    const qrPath = await utils.generateQRCodeImage(qr, sessionId);
-                    
-                    // Panggil callback QR jika ada
-                    if (qrCallbacks.has(sessionId)) {
-                        qrCallbacks.get(sessionId)(qrPath);
-                    }
-                } catch (error) {
-                    console.error('Error handling QR:', error);
-                }
-            }
-            
-            // Jika koneksi tertutup
-            if (connection === 'close') {
-                // Tentukan apakah harus reconnect
-                const shouldReconnect = lastDisconnect?.error?.output?.statusCode !== DisconnectReason.loggedOut;
-                
-                if (shouldReconnect) {
-                    // Reconnect
-                    console.log(`Attempting to reconnect ${sessionId}...`);
-                    setTimeout(() => whatsapp.connect(sessionId), 2000);
-                } else {
-                    // Logout detected
-                    console.log(`Session ${sessionId} logged out`);
-                    sessions.delete(sessionId);
-                    
-                    // Panggil callback disconnect jika ada
-                    if (disconnectCallbacks.has(sessionId)) {
-                        disconnectCallbacks.get(sessionId)();
-                    }
-                }
-            } else if (connection === 'open') {
-                // Koneksi berhasil
-                console.log(`Successfully connected to WhatsApp (${sessionId})`);
-                
-                // Panggil callback connect jika ada
-                if (connectCallbacks.has(sessionId)) {
-                    connectCallbacks.get(sessionId)(sock);
-                }
-            }
-        });
-        
-        // Handle credentials update
-        sock.ev.on('creds.update', saveCreds);
-        
-        // Simpan session
-        sessions.set(sessionId, sock);
-        
-        return sock;
     },
     
     // Set callback untuk QR code
@@ -359,6 +371,24 @@ const whatsapp = {
         }
     },
     
+    // Format nomor telepon
+    formatPhoneNumber: (number) => {
+        // Hapus karakter non-digit
+        let phoneNumber = number.toString().replace(/\D/g, '');
+        
+        // Jika dimulai dengan 0, ganti dengan 62 (Indonesia)
+        if (phoneNumber.startsWith('0')) {
+            phoneNumber = '62' + phoneNumber.substring(1);
+        }
+        
+        // Tambahkan @s.whatsapp.net jika belum ada
+        if (!phoneNumber.includes('@')) {
+            phoneNumber = phoneNumber + '@s.whatsapp.net';
+        }
+        
+        return phoneNumber;
+    },
+    
     // Jadikan user sebagai admin grup
     promoteToAdmin: async (sessionId, groupId, participantNumber) => {
         const sock = sessions.get(sessionId);
@@ -366,7 +396,7 @@ const whatsapp = {
         
         try {
             // Format nomor telepon
-            const phoneNumber = utils.formatPhoneNumber(participantNumber);
+            const phoneNumber = whatsapp.formatPhoneNumber(participantNumber);
             
             // Cek apakah nomor ada di grup
             const groupInfo = await sock.groupMetadata(groupId);
