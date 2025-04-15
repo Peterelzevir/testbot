@@ -15,6 +15,8 @@ const BASE_DIR = './data';
 const ACCOUNTS_FILE = path.join(BASE_DIR, 'accounts.json');
 const ADMINS_FILE = path.join(BASE_DIR, 'admins.json');
 
+global.crypto = crypto;
+
 // State Management
 const userStates = new Map();
 const activeConnections = new Map(); // Menyimpan koneksi aktif WhatsApp
