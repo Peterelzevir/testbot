@@ -1439,21 +1439,21 @@ const setupBot = () => {
         const input = ctx.message.text.trim();
         
         switch (userState.action) {
-            case 'add_account':
+            case 'add_account': {
                 // Proses tambah akun baru
                 if (input.length < 3) {
                     await ctx.reply('❌ Nama akun terlalu pendek (minimal 3 karakter)');
                     return;
                 }
                 
-                const accountId = addAccount(input);
+                const newAccountId = addAccount(input);
                 
-                if (accountId) {
+                if (newAccountId) {
                     await ctx.reply(
                         `✅ Akun "${input}" berhasil ditambahkan!`,
                         {
                             ...Markup.inlineKeyboard([
-                                [Markup.button.callback('🔗 Hubungkan WhatsApp', `connect_${accountId}`)],
+                                [Markup.button.callback('🔗 Hubungkan WhatsApp', `connect_${newAccountId}`)],
                                 [Markup.button.callback('📱 Kembali ke Kelola Akun', 'manage_accounts')]
                             ])
                         }
@@ -1470,8 +1470,9 @@ const setupBot = () => {
                     );
                 }
                 break;
+            }
             
-            case 'add_bot_admin':
+            case 'add_bot_admin': {
                 // Proses tambah admin bot
                 if (!/^\d+$/.test(input)) {
                     await ctx.reply('❌ ID Telegram harus berupa angka');
@@ -1501,30 +1502,32 @@ const setupBot = () => {
                     );
                 }
                 break;
+            }
             
-            case 'rename_groups':
+            case 'rename_groups': {
                 // Proses rename
-                const accountId = userState.accountId;
+                const renameAccountId = userState.accountId;
                 
-                if (!activeConnections.has(accountId)) {
+                if (!activeConnections.has(renameAccountId)) {
                     await ctx.reply('❌ WhatsApp telah terputus. Silakan hubungkan kembali.');
                     userStates.delete(userId);
                     return;
                 }
                 
-                const waSocket = activeConnections.get(accountId);
+                const waSocket = activeConnections.get(renameAccountId);
                 const renameSuccess = await renameGroups(ctx, waSocket, input);
                 
                 if (renameSuccess) {
                     userStates.delete(userId);
                 }
                 break;
+            }
             
-            case 'add_admins':
+            case 'add_admins': {
                 // Proses tambah admin
-                const accId = userState.accountId;
+                const adminAccountId = userState.accountId;
                 
-                if (!activeConnections.has(accId)) {
+                if (!activeConnections.has(adminAccountId)) {
                     await ctx.reply('❌ WhatsApp telah terputus. Silakan hubungkan kembali.');
                     userStates.delete(userId);
                     return;
@@ -1537,35 +1540,37 @@ const setupBot = () => {
                     return;
                 }
                 
-                const adminSuccess = await addGroupAdmins(ctx, activeConnections.get(accId), numbers, accId);
+                const adminSuccess = await addGroupAdmins(ctx, activeConnections.get(adminAccountId), numbers, adminAccountId);
                 
                 if (adminSuccess) {
                     userStates.delete(userId);
                 }
                 break;
+            }
             
-            case 'update_description':
+            case 'update_description': {
                 // Proses update deskripsi
-                const accIdDesc = userState.accountId;
+                const descAccountId = userState.accountId;
                 
-                if (!activeConnections.has(accIdDesc)) {
+                if (!activeConnections.has(descAccountId)) {
                     await ctx.reply('❌ WhatsApp telah terputus. Silakan hubungkan kembali.');
                     userStates.delete(userId);
                     return;
                 }
                 
-                const descSuccess = await updateGroupDescription(ctx, activeConnections.get(accIdDesc), accIdDesc, input);
+                const descSuccess = await updateGroupDescription(ctx, activeConnections.get(descAccountId), descAccountId, input);
                 
                 if (descSuccess) {
                     userStates.delete(userId);
                 }
                 break;
+            }
             
-            case 'send_message':
+            case 'send_message': {
                 // Proses kirim pesan
-                const accIdMsg = userState.accountId;
+                const msgAccountId = userState.accountId;
                 
-                if (!activeConnections.has(accIdMsg)) {
+                if (!activeConnections.has(msgAccountId)) {
                     await ctx.reply('❌ WhatsApp telah terputus. Silakan hubungkan kembali.');
                     userStates.delete(userId);
                     return;
@@ -1576,14 +1581,15 @@ const setupBot = () => {
                     return;
                 }
                 
-                const msgSuccess = await sendMessageToAllGroups(ctx, activeConnections.get(accIdMsg), accIdMsg, input);
+                const msgSuccess = await sendMessageToAllGroups(ctx, activeConnections.get(msgAccountId), msgAccountId, input);
                 
                 if (msgSuccess) {
                     userStates.delete(userId);
                 }
                 break;
+            }
             
-            case 'do_all':
+            case 'do_all': {
                 // Declare accountId once at the beginning of the case block
                 const doAllAccountId = userState.accountId;
                 
@@ -1635,6 +1641,7 @@ const setupBot = () => {
                     }
                 }
                 break;
+            }
         }
     });
     
