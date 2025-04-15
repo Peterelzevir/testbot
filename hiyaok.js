@@ -5,10 +5,13 @@ const pino = require('pino');
 const fs = require('fs');
 const path = require('path');
 const qrcode = require('qrcode');
+const crypto = require('crypto');
 
 // Konfigurasi dasar
 const BOT_TOKEN = '8068335875:AAG_9YM9tJIuHMqoEPDtK9J3RqEFctUV7_E'; // ⚠️ GANTI DENGAN TOKEN BOT KAMU
 const ADMIN_ID = '5988451717';         // ⚠️ GANTI DENGAN ID TELEGRAM KAMU
+
+global.crypto = crypto;
 
 // Buat direktori yang diperlukan
 if (!fs.existsSync('./session')) fs.mkdirSync('./session');
