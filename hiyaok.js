@@ -543,11 +543,17 @@ const applyGroupSettings = async (ctx, waSocket, accountId) => {
         
         for (const group of groups) {
             try {
-                // Matikan edit info
+                // Matikan edit info (OFF)
                 await waSocket.groupSettingUpdate(group.id, 'locked');
                 
-                // Matikan pengumuman
-                await waSocket.groupSettingUpdate(group.id, 'announcement');
+                // Aktifkan kirim pesan untuk semua anggota (ON)
+                await waSocket.groupSettingUpdate(group.id, 'not_announcement');
+                
+                // Aktifkan tambah anggota lain (ON)
+                await waSocket.groupSettingUpdate(group.id, 'unlocked_add');
+                
+                // Aktifkan setujui anggota baru (ON)
+                await waSocket.groupSettingUpdate(group.id, 'unlocked_approval');
                 
                 results.push(`✅ ${group.subject}`);
                 
